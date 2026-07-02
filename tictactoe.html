@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkillCraft Technology — Tic-Tac-Toe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0d14;
+    --surface:#12151f;
+    --surface-2:#171b28;
+    --border:#232838;
+    --border-soft:#1b1f2c;
+    --teal:#22d3af;
+    --teal-dim:#0f6e56;
+    --blue:#3b82f6;
+    --amber:#f5b942;
+    --red:#e2534a;
+    --text:#f2f3f7;
+    --text-mute:#8b93a8;
+    --text-faint:#565e73;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    display:flex;align-items:center;justify-content:center;
+    padding:32px 20px;
+    position:relative;overflow-x:hidden;
+  }
+  .bg-grid{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      linear-gradient(var(--border-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border-soft) 1px, transparent 1px);
+    background-size:64px 64px;
+    mask-image:radial-gradient(ellipse 70% 60% at 50% 30%, black 30%, transparent 85%);
+    opacity:0.5;
+  }
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  .app{position:relative;z-index:1;width:100%;max-width:420px;}
+  .eyebrow{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--teal);
+    margin-bottom:24px;
+  }
+  .eyebrow::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 8px 1px rgba(34,211,175,0.6);}
+
+  .panel{
+    background:var(--surface);border:1px solid var(--border);border-radius:18px;
+    padding:28px;
+  }
+
+  /* mode switch */
+  .mode-switch{
+    display:flex;background:var(--bg);border:1px solid var(--border);border-radius:10px;
+    padding:4px;margin-bottom:20px;position:relative;
+  }
+  .mode-btn{
+    flex:1;padding:10px 0;text-align:center;
+    font-size:13px;font-weight:600;color:var(--text-mute);
+    border-radius:7px;cursor:pointer;
+    transition:color .2s ease;
+    position:relative;z-index:1;
+  }
+  .mode-btn.active{color:#04201a;}
+  .mode-highlight{
+    position:absolute;top:4px;bottom:4px;left:4px;
+    width:calc(50% - 4px);
+    background:var(--teal);border-radius:7px;
+    transition:transform .3s cubic-bezier(.4,0,.2,1);
+    z-index:0;
+  }
+  .mode-highlight.right{transform:translateX(100%);}
+
+  /* scoreboard */
+  .scoreboard{
+    display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+    margin-bottom:20px;gap:10px;
+  }
+  .score-card{
+    background:var(--bg);border:1px solid var(--border);border-radius:10px;
+    padding:10px 8px;text-align:center;
+    transition:border-color .25s ease;
+  }
+  .score-card.turn{border-color:var(--teal);}
+  .score-card .p-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-mute);margin-bottom:2px;}
+  .score-card.x .p-label{color:var(--blue);}
+  .score-card.o .p-label{color:var(--amber);}
+  .score-card .p-score{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;}
+  .vs-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-faint);}
+
+  /* status line */
+  .status{
+    text-align:center;font-size:14px;color:var(--text-mute);
+    margin-bottom:18px;min-height:20px;
+  }
+  .status.winner{color:var(--teal);font-weight:600;}
+  .status.draw{color:var(--amber);font-weight:600;}
+
+  /* board */
+  .board{
+    display:grid;grid-template-columns:repeat(3,1fr);
+    gap:8px;margin-bottom:20px;
+    aspect-ratio:1/1;
+  }
+  .cell{
+    background:var(--bg);border:1px solid var(--border);border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    font-family:'Space Grotesk',sans-serif;font-weight:700;
+    font-size:clamp(28px,8vw,42px);
+    transition:border-color .2s ease, background .2s ease;
+    position:relative;
+  }
+  .cell:hover:not(.filled):not(.disabled){border-color:var(--text-faint);background:var(--surface-2);}
+  .cell.x-mark{color:var(--blue);}
+  .cell.o-mark{color:var(--amber);}
+  .cell.win{border-color:var(--teal);background:rgba(34,211,175,0.08);}
+  .cell.filled, .cell.disabled{cursor:default;}
+  .cell svg{width:60%;height:60%;}
+  .cell-mark{animation:pop .2s ease;}
+  @keyframes pop{from{transform:scale(0.5);opacity:0;}to{transform:scale(1);opacity:1;}}
+
+  .actions{display:flex;gap:12px;}
+  .btn{
+    flex:1;padding:13px 0;border-radius:9px;border:1px solid var(--border);
+    background:var(--surface-2);color:var(--text);font-size:14px;font-weight:600;
+    cursor:pointer;transition:transform .15s ease, border-color .2s ease;
+  }
+  .btn:hover{border-color:var(--teal);}
+  .btn:active{transform:scale(0.97);}
+  .btn-reset-score{border-color:transparent;color:var(--text-faint);background:transparent;}
+  .btn-reset-score:hover{color:var(--red);border-color:var(--red);}
+
+  @media (max-width:400px){
+    .panel{padding:20px;}
+  }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+
+<div class="app">
+  <div class="eyebrow">SkillCraft Technology / tic-tac-toe</div>
+
+  <div class="panel">
+    <div class="mode-switch">
+      <div class="mode-highlight" id="modeHighlight"></div>
+      <div class="mode-btn active" id="modePvp" data-mode="pvp">Two players</div>
+      <div class="mode-btn" id="modeCpu" data-mode="cpu">Vs computer</div>
+    </div>
+
+    <div class="scoreboard">
+      <div class="score-card x turn" id="scoreX">
+        <div class="p-label">Player X</div>
+        <div class="p-score" id="scoreXVal">0</div>
+      </div>
+      <div class="vs-label">VS</div>
+      <div class="score-card o" id="scoreO">
+        <div class="p-label" id="oLabel">Player O</div>
+        <div class="p-score" id="scoreOVal">0</div>
+      </div>
+    </div>
+
+    <div class="status" id="status">Player X's turn</div>
+
+    <div class="board" id="board"></div>
+
+    <div class="actions">
+      <button class="btn" id="newRoundBtn">New round</button>
+      <button class="btn btn-reset-score" id="resetScoreBtn">Reset scores</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const boardEl = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const scoreXVal = document.getElementById('scoreXVal');
+  const scoreOVal = document.getElementById('scoreOVal');
+  const scoreXCard = document.getElementById('scoreX');
+  const scoreOCard = document.getElementById('scoreO');
+  const oLabel = document.getElementById('oLabel');
+  const modePvp = document.getElementById('modePvp');
+  const modeCpu = document.getElementById('modeCpu');
+  const modeHighlight = document.getElementById('modeHighlight');
+  const newRoundBtn = document.getElementById('newRoundBtn');
+  const resetScoreBtn = document.getElementById('resetScoreBtn');
+
+  const WIN_LINES = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  let cells = Array(9).fill(null);
+  let currentPlayer = 'X';
+  let gameOver = false;
+  let mode = 'pvp';
+  let scores = { X: 0, O: 0 };
+  let cellEls = [];
+
+  function buildBoard(){
+    boardEl.innerHTML = '';
+    cellEls = [];
+    for(let i = 0; i < 9; i++){
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.index = i;
+      cell.addEventListener('click', () => handleMove(i));
+      boardEl.appendChild(cell);
+      cellEls.push(cell);
+    }
+  }
+
+  function markIcon(player){
+    if(player === 'X'){
+      return '<svg class="cell-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>';
+    }
+    return '<svg class="cell-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="8"/></svg>';
+  }
+
+  function updateTurnHighlight(){
+    scoreXCard.classList.toggle('turn', currentPlayer === 'X' && !gameOver);
+    scoreOCard.classList.toggle('turn', currentPlayer === 'O' && !gameOver);
+  }
+
+  function setStatus(text, cls){
+    statusEl.textContent = text;
+    statusEl.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  function checkWinner(){
+    for(const line of WIN_LINES){
+      const [a,b,c] = line;
+      if(cells[a] && cells[a] === cells[b] && cells[a] === cells[c]){
+        return { winner: cells[a], line };
+      }
+    }
+    if(cells.every(c => c !== null)) return { winner: 'draw' };
+    return null;
+  }
+
+  function handleMove(index){
+    if(gameOver || cells[index] || (mode === 'cpu' && currentPlayer === 'O')) return;
+    placeMark(index);
+  }
+
+  function placeMark(index){
+    cells[index] = currentPlayer;
+    const cell = cellEls[index];
+    cell.classList.add('filled', currentPlayer === 'X' ? 'x-mark' : 'o-mark');
+    cell.innerHTML = markIcon(currentPlayer);
+
+    const result = checkWinner();
+    if(result){
+      endGame(result);
+      return;
+    }
+
+    currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+    updateTurnHighlight();
+    setStatus(mode === 'cpu' && currentPlayer === 'O' ? 'Computer is thinking…' : `Player ${currentPlayer}'s turn`);
+
+    if(mode === 'cpu' && currentPlayer === 'O' && !gameOver){
+      setTimeout(cpuMove, 450);
+    }
+  }
+
+  function endGame(result){
+    gameOver = true;
+    if(result.winner === 'draw'){
+      setStatus("It's a draw", 'draw');
+    } else {
+      setStatus(`Player ${result.winner} wins`, 'winner');
+      result.line.forEach(i => cellEls[i].classList.add('win'));
+      scores[result.winner]++;
+      scoreXVal.textContent = scores.X;
+      scoreOVal.textContent = scores.O;
+    }
+    scoreXCard.classList.remove('turn');
+    scoreOCard.classList.remove('turn');
+    cellEls.forEach(c => c.classList.add('disabled'));
+  }
+
+  function cpuMove(){
+    if(gameOver) return;
+    const index = pickCpuMove();
+    if(index !== -1) placeMark(index);
+  }
+
+  function pickCpuMove(){
+    const empty = cells.map((v,i) => v === null ? i : -1).filter(i => i !== -1);
+    for(const i of empty){
+      cells[i] = 'O';
+      if(checkWinner()?.winner === 'O'){ cells[i] = null; return i; }
+      cells[i] = null;
+    }
+    for(const i of empty){
+      cells[i] = 'X';
+      if(checkWinner()?.winner === 'X'){ cells[i] = null; return i; }
+      cells[i] = null;
+    }
+    if(cells[4] === null) return 4;
+    const corners = [0,2,6,8].filter(i => cells[i] === null);
+    if(corners.length) return corners[Math.floor(Math.random() * corners.length)];
+    return empty.length ? empty[Math.floor(Math.random() * empty.length)] : -1;
+  }
+
+  function newRound(){
+    cells = Array(9).fill(null);
+    currentPlayer = 'X';
+    gameOver = false;
+    buildBoard();
+    updateTurnHighlight();
+    setStatus("Player X's turn");
+  }
+
+  function resetScores(){
+    scores = { X: 0, O: 0 };
+    scoreXVal.textContent = 0;
+    scoreOVal.textContent = 0;
+    newRound();
+  }
+
+  function setMode(newMode){
+    mode = newMode;
+    modePvp.classList.toggle('active', mode === 'pvp');
+    modeCpu.classList.toggle('active', mode === 'cpu');
+    modeHighlight.classList.toggle('right', mode === 'cpu');
+    oLabel.textContent = mode === 'cpu' ? 'Computer' : 'Player O';
+    newRound();
+  }
+
+  modePvp.addEventListener('click', () => setMode('pvp'));
+  modeCpu.addEventListener('click', () => setMode('cpu'));
+  newRoundBtn.addEventListener('click', newRound);
+  resetScoreBtn.addEventListener('click', resetScores);
+
+  buildBoard();
+  updateTurnHighlight();
+</script>
+</body>
+</html>
